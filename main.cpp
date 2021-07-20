@@ -119,9 +119,9 @@ public:
     void process() {
         if (isEmpty()) return;
         processStartTime = std::chrono::steady_clock::now();
-        //printLine("processing " + std::to_string(getId()));
         doActualProcess();
         processEndTime = std::chrono::steady_clock::now();
+        printLine(std::to_string(getId()) + " processed ");
     }
 
 public:  // these three need to be overridden by derived class to change the behaviour.
