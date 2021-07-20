@@ -13,7 +13,7 @@ example:
     Queue<Job> &jobQ = scheduler.getQueue();
 
 3. Populate the queue
-  
+
     for (int i = 1; i <= nJobs; i++)
         jq.push(Job {i});
     jq.push(Job {-1});  //last job
