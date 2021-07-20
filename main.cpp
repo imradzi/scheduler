@@ -47,7 +47,6 @@ class Scheduler {
     std::atomic<bool> endOfJob {false};
     std::vector<std::thread> threadList;
     void workerThread() {
-        printLine("thread started.");
         while (!endOfJob) {
             auto j = jobQueue.pop();
             if (j != nullptr) {
@@ -61,7 +60,6 @@ class Scheduler {
                 }
             }
         }
-        printLine("thread stopped.");
     }
 
 public:
@@ -69,18 +67,18 @@ public:
         for (int i = 0; i < nThreads; i++)
             threadList.emplace_back(&Scheduler::workerThread, this);
     }
+    ~Scheduler() { wait(); }
     void wait() {
-        printLine("waiting for threads to terminate.");
         for (auto &x : threadList) {
             x.join();
         }
+        threadList.clear();
     }
     Queue<T> &getQueue() { return jobQueue; }
     auto &getCompletedJobs() { return jobCompleted; }
 };
 
 struct JobBase {
-
     std::chrono::time_point<std::chrono::steady_clock> createTime {std::chrono::steady_clock::now()};
     std::chrono::time_point<std::chrono::steady_clock> queueTime {std::chrono::steady_clock::now()};
     std::chrono::time_point<std::chrono::steady_clock> processStartTime {std::chrono::steady_clock::now()};
@@ -107,7 +105,7 @@ public:
         processEndTime = std::chrono::steady_clock::now();
     }
 
-public: // these three need to be overridden by derived class to change the behaviour.
+public:  // these three need to be overridden by derived class to change the behaviour.
     virtual bool isLastJob() = 0;
     virtual bool isEmpty() = 0;
     virtual void doActualProcess() = 0;
@@ -116,8 +114,10 @@ public: // these three need to be overridden by derived class to change the beha
 
 struct Job : public JobBase {
     int id {-1};
+
 public:
-    Job(int i) : id(i), JobBase(true) {}
+    Job(int i) : id(i),
+                 JobBase(true) {}
     bool isLastJob() override { return id == -1; }
     int64_t getId() override { return id; }
     bool isEmpty() override { return id <= 0; }
