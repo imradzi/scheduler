@@ -17,23 +17,23 @@ void printLine(const std::string &s) {
 
 template<typename T>
 class Queue {
-    std::queue<T> queue;
-    std::recursive_mutex _mtx;
+    std::queue<std::shared_ptr<T>> queue;
+    std::mutex _mtx;
 
 public:
     Queue() {}
     void push(const T &j) {
-        const std::lock_guard<std::recursive_mutex> _guard(_mtx);
-        queue.emplace(j).setQueueTime(std::chrono::steady_clock::now());
+        const std::lock_guard<std::mutex> _guard(_mtx);
+        queue.emplace(std::make_shared<T>(j))->setQueueTime(std::chrono::steady_clock::now());
     }
     bool empty() {
-        const std::lock_guard<std::recursive_mutex> _guard(_mtx);
+        const std::lock_guard<std::mutex> _guard(_mtx);
         return queue.empty();
     }
     std::shared_ptr<T> pop() {
-        const std::lock_guard<std::recursive_mutex> _guard(_mtx);
-        if (empty()) return nullptr;
-        std::shared_ptr<T> j = std::make_shared<T>(queue.front());
+        const std::lock_guard<std::mutex> _guard(_mtx);
+        if (queue.empty()) return nullptr;
+        auto j = queue.front();
         queue.pop();
         return j;
     }
