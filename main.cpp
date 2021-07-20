@@ -8,7 +8,26 @@
 #include <chrono>
 #include <memory>
 #include <iomanip>
+#include <random>
 using namespace std::chrono_literals;
+namespace Random {
+    template<typename T>
+    class Picker {
+        std::random_device rd;
+        std::mt19937 gen;
+        T rangeMin, rangeMax;
+
+    public:
+        Picker(T min, T max) : gen(rd()),
+                               rangeMin(min),
+                               rangeMax(max) {}
+        T GetNextRandom() {
+            std::uniform_int_distribution<T> r(rangeMin, rangeMax);
+            return r(gen);
+        }
+    };
+}
+
 static std::mutex lock_cout;  // so that only one thread can use std::cout at one time
 void printLine(const std::string &s) {
     std::lock_guard<std::mutex> __guard(lock_cout);
@@ -100,7 +119,7 @@ public:
     void process() {
         if (isEmpty()) return;
         processStartTime = std::chrono::steady_clock::now();
-        printLine("processing " + std::to_string(getId()));
+        //printLine("processing " + std::to_string(getId()));
         doActualProcess();
         processEndTime = std::chrono::steady_clock::now();
     }
@@ -114,6 +133,7 @@ public:  // these three need to be overridden by derived class to change the beh
 
 struct Job : public JobBase {
     int id {-1};
+    static Random::Picker<int> rand;
 
 public:
     Job(int i) : id(i),
@@ -122,9 +142,12 @@ public:
     int64_t getId() override { return id; }
     bool isEmpty() override { return id <= 0; }
     void doActualProcess() override {
-        std::this_thread::sleep_for(500ms);  // fictitously set to 500ms;
+        auto dur = rand.GetNextRandom();                              //rand.GetNextRandom();
+        std::this_thread::sleep_for(std::chrono::milliseconds(dur));  // fictitously set to 500ms;
     }
 };
+
+Random::Picker<int> Job::rand(300, 900);
 
 int main(int argc, char *argv[]) {
     int nThreads = 4;
@@ -132,11 +155,16 @@ int main(int argc, char *argv[]) {
     if (argc > 1) nThreads = std::stoi(argv[1]);
     if (argc > 2) nJobs = std::stoi(argv[2]);
 
+    Random::Picker<int> rand(100, 500);
     Scheduler<Job> scheduler(nThreads);
     Queue<Job> &jq = scheduler.getQueue();
     //simulating jobs on queue.
-    for (int i = 1; i <= nJobs; i++)
+    for (int i = 1; i <= nJobs; i++) {
+        auto sleep = rand.GetNextRandom();
+        printLine("sleeping for " + std::to_string(sleep));
+        std::this_thread::sleep_for(std::chrono::milliseconds(sleep));
         jq.push(Job {i});
+    }
     jq.push(Job {-1});  //last job
 
     scheduler.wait();
@@ -150,16 +178,16 @@ int main(int argc, char *argv[]) {
     for (auto &jc : jobList) {
         double dur = jc->getElapsed();
         lock_cout.lock();
-        std::cout << std::setiosflags(std::ios::fixed) << std::setprecision(0) << jc->getId() << " time spent " << dur / 1000 << " microseconds" << std::endl;
+        std::cout << std::setiosflags(std::ios::fixed) << std::setprecision(0) << "Job " << jc->getId() << " take " << dur / 1000 << " μs" << std::endl;
         lock_cout.unlock();
         total += dur;
         if (dur < min) min = dur;
         if (dur > max) max = dur;
     }
     lock_cout.lock();
-    std::cout << "Min   = " << std::setiosflags(std::ios::fixed) << std::setprecision(0) << std::setw(15) << min / 1000 << std::endl;
-    std::cout << "max   = " << std::setiosflags(std::ios::fixed) << std::setprecision(0) << std::setw(15) << max / 1000 << std::endl;
-    std::cout << "avg   = " << std::setiosflags(std::ios::fixed) << std::setprecision(0) << std::setw(15) << (total / n) / 1000 << std::endl;
+    std::cout << "Min = " << std::setiosflags(std::ios::fixed) << std::setprecision(0) << std::setw(9) << min / 1000 << " μs" << std::endl;
+    std::cout << "max = " << std::setiosflags(std::ios::fixed) << std::setprecision(0) << std::setw(9) << max / 1000 << " μs" << std::endl;
+    std::cout << "avg = " << std::setiosflags(std::ios::fixed) << std::setprecision(0) << std::setw(9) << (total / n) / 1000 << " μs" << std::endl;
     std::cout << std::endl;
     lock_cout.unlock();
 }
